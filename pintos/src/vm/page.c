@@ -148,6 +148,7 @@ page_out (struct page *p)
   ASSERT (p->frame != NULL);
   ASSERT (lock_held_by_current_thread (&p->frame->lock));
 
+
   /* Mark page not present in page table, forcing accesses by the
      process to fault.  This must happen before checking the
      dirty bit, to prevent a race with the process dirtying the
