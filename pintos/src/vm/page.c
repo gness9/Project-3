@@ -68,7 +68,7 @@ page_for_addr (const void *address)
       }
     }
 
-    }
+    
   return NULL;
 }
 
