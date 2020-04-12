@@ -1,0 +1,196 @@
+		           +---------------------------+
+       	           |         CIS 520           |
+		           | PROJECT 3: Virtual Memory |
+		           |     DESIGN DOCUMENT       |
+		           +---------------------------+
+
+---- GROUP ----
+
+>> Fill in the names of your group members.
+
+Aaron Simpson
+Glenn Ness
+Zayin Brunson
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, notes for the
+>> TAs, or extra credit, please give them here.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+
+https://github.com/cctv2206/Pintos-project-3
+https://www.scs.stanford.edu/07au-cs140/labs/project3aut07.pdf
+https://raw.githubusercontent.com/sambasev/Pintos-Project-3/
+https://github.com/ChristianJHughes/pintos-project3
+http://www.scs.stanford.edu/10wi-cs140/reference/index.html
+
+			PAGE TABLE MANAGEMENT
+			=====================
+
+---- ALGORITHMS ----
+
+>> A1: In a few paragraphs, describe the existing code for locating the
+>> frame, if any, that contains the data of a given page.
+
+The page struct is defined in the existing page.h file like so:
+struct page
+{
+    void *addr;
+    bool read_only;
+    struct thread *thread;
+    struct hash_elem hash_elem;
+    struct frame *frame;
+    block_sector_t sector;
+    bool private;
+    struct file *file;
+    off_t file_offset;
+    off_t file_bytes;
+};
+Notice declared in this struct is the *frame field that keeps track of the owning page frame. Likewise, in frame.h,
+the frame struct is defined as so:
+struct frame
+{
+    struct lock lock;
+    void *base;
+    struct page *page;
+
+};
+The declared *page field keeps track of the process page, if one exists. The declared *base field is a pointer to the
+kernel virtual base address of the page frame. Because of the way Pintos works, kernel virtual memory is mapped one to one with
+physical memory frames. When a new page is mapped into virtual memory using page_allocate, it is initially assigned
+NULL. The on_page_in() function when called attempts to allocate a frame for the page and, if successful, assigns the address
+of that frame to the frame field.
+
+
+---- SYNCHRONIZATION ----
+
+>> A2: When two user processes both need a new frame at the same time,
+>> how are races avoided?
+The function try_frame_alloc_and_lock() acquires a lock when allocating the frame for a page, preventing any other attempts
+at frame allocation and failing if it cannot.
+
+		       PAGING TO AND FROM DISK
+		       =======================
+
+---- ALGORITHMS ----
+
+>> B1: When a frame is required but none is free, some frame must be
+>> evicted.  Describe the algorithm used to choose a frame to evict.
+
+A for-loop in the frame allocation function try_frame_alloc_and_lock() loops through all the frames in
+the frame table. If in the process of finding a page to evict we find a free frame, immediately
+occupy it. Otherwise, the page_accessed_recently() function determines if a page has been accessed recently.
+If not, then we call the page_out() function, evicting the frame. This is in 
+some respects similar to an LRU page replacement algorithm. The reason for this is the general principle of 
+caching & locality; in this case temporal locality. If a frame has been accessed recently, it's highly likely 
+that it will be accessed again soon and should not be evicted to avoid paying the penalty of a page fault. 
+Conversely, a page that has NOT been accessed recently is probably safer to evict. 
+
+>> B2: Explain your heuristic for deciding whether a page fault for an
+>> invalid virtual address should cause the stack to be extended into
+>> the page that faulted.
+The STACK_MAX constant defines the maximum size that a process stack can reach, 
+so the first important thing is checking to make sure that we haven't exceeded that limit. Second, 
+as the project description points out, both PUSH and PUSHA deal with memory 4 bytes and 32 bytes
+below the stack pointer respectively, so it's important take into account these two situations
+where a fault could potentially fall below the stack pointer and not be invalid. Once those
+are accounted for, we know we can allocate an additional page.
+
+			 MEMORY MAPPED FILES
+			 ===================
+
+---- DATA STRUCTURES ----
+
+>> C1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+
+---- ALGORITHMS ----
+
+>> C2: Describe how memory mapped files integrate into your virtual
+>> memory subsystem.  Explain how the page fault and eviction
+>> processes differ between swap pages and other pages.
+
+The mapping struct is defined in syscall.c as follows:
+struct mapping
+{
+    struct list_elem elem;
+    int handle;
+    struct file *file;
+    uint8_t *base;
+    size_t page_cnt;
+};
+The important fields here are *base and *file. *base stores the starting address of the mapping
+in the address space, and *file is the file we are mapping from into memory.
+
+Page fault and eviction differs in that we're lazy with our unmapping. We check the "dirtiness" 
+of our page and that determines whether we write the page back to the file or just free the memory.
+Regardless, we remove the pages from the process's virtual memory.
+
+
+>> C3: Explain how you determine whether a new file mapping overlaps
+>> any existing segment.
+
+Part of mmap syscall is the following code:
+  while (length > 0)
+    {
+      struct page *p = page_allocate ((uint8_t *) addr + offset, false);
+      if (p == NULL)
+        {
+          unmap (m);
+          return -1;
+        }
+      p->private = false;
+      p->file = m->file;
+      p->file_offset = offset;
+      p->file_bytes = length >= PGSIZE ? PGSIZE : length;
+      offset += p->file_bytes;
+      length -= p->file_bytes;
+      m->page_cnt++;
+    }
+Part of this code's execution is the fact that page_allocate() will fail if the virtual address
+is already mapped i.e. mapping to this location would overwrite that data. Thus, if the address is already
+mapped to a different file, then page_allocate() will return NULL, triggering the if-statement and immediately
+unmapping.
+
+---- RATIONALE ----
+
+>> C4: Mappings created with "mmap" have similar semantics to those of
+>> data demand-paged from executables, except that "mmap" mappings are
+>> written back to their original files, not to swap.  This implies
+>> that much of their implementation can be shared.  Explain why your
+>> implementation either does or does not share much of the code for
+>> the two situations.
+
+Our code implementation is similar to parts of memory-mapped files and executable mapping. The only 
+discrepancies are when a page needs to be written back out to the disk; A page will be written to the 
+disk if it is not private. If it is private, then it will be swapped to the swap partition.
+
+
+			   SURVEY QUESTIONS
+			   ================
+
+Answering these questions is optional, but it will help us improve the
+course in future quarters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the course evaluations at the end of
+the quarter.
+
+>> In your opinion, was this assignment, or any one of the three problems
+>> in it, too easy or too hard?  Did it take too long or too little time?
+	It wasn't incredibly difficult. We believe that it was around the right difficulty for the task at hand.
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
+	Yes, working on these projects allows us to gain a better grasp about operating systems in general especially pintos.
+>> Is there some particular fact or hint we should give students in
+>> future quarters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
+	This project seemed a lot clear in terms of instructions than the previous one. The last one wasn't bad at all, this one was better though.
+>> Do you have any suggestions for the TAs to more effectively assist
+>> students, either for future quarters or the remaining projects?
+	None at the moment.
+>> Any other comments?
