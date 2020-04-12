@@ -21,6 +21,12 @@ Zayin Brunson
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course staff.
 
+https://github.com/cctv2206/Pintos-project-3
+https://www.scs.stanford.edu/07au-cs140/labs/project3aut07.pdf
+https://raw.githubusercontent.com/sambasev/Pintos-Project-3/
+https://github.com/ChristianJHughes/pintos-project3
+http://www.scs.stanford.edu/10wi-cs140/reference/index.html
+
 			PAGE TABLE MANAGEMENT
 			=====================
 
@@ -160,6 +166,9 @@ unmapping.
 >> implementation either does or does not share much of the code for
 >> the two situations.
 
+Our code implementation is similar to parts of memory-mapped files and executable mapping. The only 
+discrepancies are when a page needs to be written back out to the disk; A page will be written to the 
+disk if it is not private. If it is private, then it will be swapped to the swap partition.
 
 
 			   SURVEY QUESTIONS
@@ -173,15 +182,15 @@ the quarter.
 
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
-
+	It wasn't incredibly difficult. We believe that it was around the right difficulty for the task at hand.
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
-
+	Yes, working on these projects allows us to gain a better grasp about operating systems in general especially pintos.
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
-
+	This project seemed a lot clear in terms of instructions than the previous one. The last one wasn't bad at all, this one was better though.
 >> Do you have any suggestions for the TAs to more effectively assist
 >> students, either for future quarters or the remaining projects?
-
+	None at the moment.
 >> Any other comments?
